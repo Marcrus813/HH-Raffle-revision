@@ -50,3 +50,10 @@
                 msg.sender
             );
             ```
+- VRF
+    - Base steps
+        1. Create subscription
+        2. Implement consumer contract(which will use the subscription)
+            - Follow docs, to link to the sub, need the sub's id, can get it at the page
+        3. Deploy the consumer
+        4. Authorize the consumer in the subscription using consumer's deployed address
