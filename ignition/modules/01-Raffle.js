@@ -1,5 +1,5 @@
 const { buildModule } = require("@nomicfoundation/hardhat-ignition");
-const { raffleParams } = require("../../raffle-params");
+const { raffleParams, vrfConsumerParams } = require("../../raffle-params");
 const { chainIds, networkConfig, devChains } = require("../../helper-hardhat-config");
 
 module.exports = buildModule("Raffle#Raffle", (m) => {
@@ -23,6 +23,10 @@ module.exports = buildModule("Raffle#Raffle", (m) => {
         default:
             const chainId = chainIds[network];
             const mockAddress = networkConfig[chainId].vrfCoordinator;
+
+            const vrfParams = vrfConsumerParams[network];
+            
+
             raffleModule = m.contract("Raffle", [raffleParams.entranceFee, mockAddress], {
                 verify: true,
             });

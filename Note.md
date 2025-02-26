@@ -50,10 +50,25 @@
                 msg.sender
             );
             ```
-- VRF
+- VRF(For this part, I am using tutorial as a general guide, main steps following official doc)
     - Base steps
         1. Create subscription
         2. Implement consumer contract(which will use the subscription)
             - Follow docs, to link to the sub, need the sub's id, can get it at the page
         3. Deploy the consumer
         4. Authorize the consumer in the subscription using consumer's deployed address
+    - Specific
+        - `produceWinner`
+            - Request random number -> Use the number to produce winner
+            - Two transaction process, to prevent exploit(HOW?)
+                1. Request
+                2. Get random number
+    - Challenges
+        - Deploying with inheritance
+    - Implementing
+        - Referring to new doc, see code comments for more detailed info
+        - For referencing, see [VRFD20](https://docs.chain.link/vrf/v2-5/getting-started#overview)
+            - In the example contract, it is designed to store the rolled values, thus all the `s_roller`, `s_results`, which at the moment I think I don't need, but "rolling a dice" is a way to describe the process, we tell the DM to roll the dice, and wait for a result, then we get the result and do sth with it
+    - Automation
+        - [Automation app](https://automation.chain.link/)
+        - Contracts needs to be automation compatible -> `import { AutomationCompatibleInterface } from "@chainlink/contracts/src/v0.8/automation/AutomationCompatible.sol";`
