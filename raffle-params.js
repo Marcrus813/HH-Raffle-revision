@@ -1,5 +1,7 @@
 const raffleParams = {
-    entranceFee: 0.01 * 10 ** 18,
+    entranceFee: 10_000_000_000_000_000n,
+    interval: 30,
+    
 };
 
 const vrfConsumerParams = {
@@ -15,7 +17,14 @@ const vrfConsumerParams = {
     },
 };
 
+const vrfCoordinatorMockParams = {
+    baseFee: 1_00_000_000_000_000_000n,
+    gasPrice: 1_000_000_000n,
+    weiPerUnitLink: 6_589_088_512_940_730n
+};
+
 module.exports = {
     raffleParams,
     vrfConsumerParams,
+    vrfCoordinatorMockParams
 };

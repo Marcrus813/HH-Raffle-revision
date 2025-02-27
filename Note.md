@@ -72,3 +72,28 @@
     - Automation
         - [Automation app](https://automation.chain.link/)
         - Contracts needs to be automation compatible -> `import { AutomationCompatibleInterface } from "@chainlink/contracts/src/v0.8/automation/AutomationCompatible.sol";`
+            - Functions: `checkUpKeep` and `performUpKeep`
+- Deployment
+    - [ ] Problems
+        - [x] Overflow problems
+            - Initially I used `0.01 * 10 ** 18` to represent 0.01 ETH, but it will cause overflow problem, thus used `10_000_000_000_000_000n`
+    - Resolve dependencies: `VRFConsumerBaseV2Plus, AutomationCompatibleInterface`
+        >Deploying a contract with inheritance using hardhat ignition, to my understanding, the inherited constructor will also need parameter, like in Raffle.sol, the >vrfCoordinator variable which will be past in as a parameter, so in my ignition script I can just code it like usual, regardless of inheritance, am I correct? >If I am, I am also thinking will there be a scenario where a separate param is needed, like the inherited contract is of my own
+    - `vrfParams` for mock contract: [Ref](https://docs.chain.link/vrf/v2-5/subscription/test-locally)
+        - Preparing
+            1. Call `createSubscription` -> `subscriptionId`
+            2. Call `fundSubscription` with `subscriptionId`, `_amount = 100000000000000000000` -> Fund sub with 100 LINK
+            3. Deploy consumer contract, then add consumer to mock using `addConsumer`
+            4. Request random, get `requestId`
+            5. Because on local net, I need to fulfill it myself with `requestId`
+        - Getting & using params with hardhat ignition
+            - Starting the same, deploy the mock contract with corresponding params, then call `createSubscription` then `fundSubscription`
+                - Ignition calling functions([docs](https://hardhat.org/ignition/docs/guides/creating-modules))
+                    - After test, I used `const vrf_subId = m.call(contract_vrfMock, "createSubscription", []).value;`, to get the actual value, which is `0`, should be correct, but when deploying getting
+                        ```shell
+                        [ RaffleModule ] failed ⛔
+                        Futures failed during execution:
+                        - RaffleModule#VRFCoordinatorV2_5Mock.fundSubscription: Simulating the transaction failed with error: Reverted with custom error InvalidSubscription()
+                        ```
+
+    
