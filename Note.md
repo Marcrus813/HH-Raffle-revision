@@ -17,6 +17,7 @@
 
 - **SHOULD BE familiar with ETH Wei conversion rate: 1 ETH = 1000000000 GWEI = 1000000000000000000 WEI; 9 digits each level**
 - [Official style guide](https://docs.soliditylang.org/en/latest/style-guide.html), layout:
+
     1. Type declarations
     2. State variables
     3. Events
@@ -77,8 +78,9 @@
     - [ ] Problems
         - [x] Overflow problems
             - Initially I used `0.01 * 10 ** 18` to represent 0.01 ETH, but it will cause overflow problem, thus used `10_000_000_000_000_000n`
+        - [x] Failing to get `subId` with ignition, solved using reading event instead of direct function call, details below
     - Resolve dependencies: `VRFConsumerBaseV2Plus, AutomationCompatibleInterface`
-        >Deploying a contract with inheritance using hardhat ignition, to my understanding, the inherited constructor will also need parameter, like in Raffle.sol, the >vrfCoordinator variable which will be past in as a parameter, so in my ignition script I can just code it like usual, regardless of inheritance, am I correct? >If I am, I am also thinking will there be a scenario where a separate param is needed, like the inherited contract is of my own
+        > Deploying a contract with inheritance using hardhat ignition, to my understanding, the inherited constructor will also need parameter, like in Raffle.sol, the >vrfCoordinator variable which will be past in as a parameter, so in my ignition script I can just code it like usual, regardless of inheritance, am I correct? >If I am, I am also thinking will there be a scenario where a separate param is needed, like the inherited contract is of my own
     - `vrfParams` for mock contract: [Ref](https://docs.chain.link/vrf/v2-5/subscription/test-locally)
         - Preparing
             1. Call `createSubscription` -> `subscriptionId`
@@ -95,5 +97,5 @@
                         Futures failed during execution:
                         - RaffleModule#VRFCoordinatorV2_5Mock.fundSubscription: Simulating the transaction failed with error: Reverted with custom error InvalidSubscription()
                         ```
-
-    
+            - Try use event to get subId
+                - Got it working: `const subId = m.readEventArgument(createSub_future, "SubscriptionCreated", "subId");`, `createSub_future` being the function call future object, then the event name, then the event index to read

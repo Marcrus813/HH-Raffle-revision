@@ -1,5 +1,5 @@
-const { buildModule } = require("@nomicfoundation/hardhat-ignition");
-const { chainIds, networkConfig, devChains } = require("../../helper-hardhat-config");
+const { buildModule } = require("@nomicfoundation/hardhat-ignition/modules");
+const { devChains } = require("../../helper-hardhat-config");
 const {vrfCoordinatorMockParams} = require("../../raffle-params")
 
 module.exports = buildModule("VRFCoordinatorMockModule", (m) => {

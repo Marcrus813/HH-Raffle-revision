@@ -165,6 +165,10 @@ contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
         }
     }
 
+    function getVrfCoordinator() public view returns (address coordinatorAddress) {
+        coordinatorAddress = i_vrfCoordinator;
+    }
+
     function getEntranceFee() public view returns (uint256 entranceFee) {
         entranceFee = i_entranceFee;
     }

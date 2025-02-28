@@ -20,17 +20,27 @@ module.exports = buildModule("RaffleModule", (m) => {
                 vrfCoordinatorMockParams.weiPerUnitLink,
             ];
             contract_vrfMock = m.contract("VRFCoordinatorV2_5Mock", mockParams); // Deploy the mock for further actions
-            const vrf_subId = m.call(contract_vrfMock, "createSubscription", []).value; // See note
-            m.call(contract_vrfMock, "fundSubscription", [vrf_subId, 100000000000000000000n /* value to fund */]);
+            const createSub_future = m.call(contract_vrfMock, "createSubscription", [], {
+                after: [contract_vrfMock],
+            }); // See note
+            const subId = m.readEventArgument(createSub_future, "SubscriptionCreated", "subId");
+            const fundSub_future = m.call(
+                contract_vrfMock,
+                "fundSubscription",
+                [subId, 100000000000000000000n /* value to fund */],
+                {
+                    after: [contract_vrfMock, createSub_future],
+                },
+            );
             const vrf_keyHash =
                 "0x787d74caea10b2b357790d5b5247c2f63d1d91572a9846f780606e4d953677ae"; // Just a random bytes32
             const vrf_callbackGasLimit = 40000;
             const vrf_requestConfirmations = 1;
             const vrf_numWords = 1;
-            raffleModule = m.contract(
+            contract_raffle = m.contract(
                 "Raffle",
                 [
-                    vrf_subId,
+                    subId,
                     contract_vrfMock,
                     vrf_keyHash,
                     vrf_callbackGasLimit,
@@ -40,9 +50,19 @@ module.exports = buildModule("RaffleModule", (m) => {
                     raffleParams.interval,
                 ],
                 {
-                    after: [contract_vrfMock],
+                    after: [contract_vrfMock, createSub_future, fundSub_future],
                 },
             );
+
+            m.call(
+                contract_vrfMock,
+                "addConsumer",
+                [subId, contract_raffle],
+                {
+                    after: [contract_vrfMock, createSub_future, fundSub_future, contract_raffle],
+                },
+            );
+
             return { contract_raffle, contract_vrfMock };
 
         default:
