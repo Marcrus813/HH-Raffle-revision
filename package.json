@@ -29,5 +29,6 @@
     "h-deploy": "hardhat ignition deploy",
     "h-verify": "hardhat ignition verify",
     "h-run": "hardhat run"
-  }
+  },
+  "packageManager": "yarn@1.22.19+sha1.4ba7fc5c6e704fce2066ecbfb0b0d8976fe62447"
 }

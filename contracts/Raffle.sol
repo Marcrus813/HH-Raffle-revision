@@ -13,7 +13,7 @@ error Raffle__TransferFailed();
 contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
     enum RaffleState {
         // To keep track of the state when bool is not enough, this is similar to mapping: 0->OPEN, 1->CALCULATING
-        OPEN,
+        OPEN, // When interacting with code, it is returned with index, e.g.: RaffleState.OPEN -> 0
         CALCULATING
     }
 
@@ -165,8 +165,28 @@ contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
         }
     }
 
+    function getSubId() public view returns (uint256 subscriptionId) {
+        subscriptionId = i_subscriptionId;
+    }
+
     function getVrfCoordinator() public view returns (address coordinatorAddress) {
         coordinatorAddress = i_vrfCoordinator;
+    }
+
+    function getKeyHash() public view returns (bytes32 keyHash) {
+        keyHash = i_keyHash;
+    }
+
+    function getCallbackGasLimit() public view returns (uint32 callbackGasLimit) {
+        callbackGasLimit = i_callbackGasLimit;
+    }
+
+    function getRequestConfirmations() public view returns (uint16 requestConfirmations) {
+        requestConfirmations = i_requestConfirmations;
+    }
+
+    function getNumWords() public view returns (uint32 numWords) {
+        numWords = i_numWords;
     }
 
     function getEntranceFee() public view returns (uint256 entranceFee) {
@@ -191,13 +211,5 @@ contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
 
     function getLatestWinner() public view returns (address latestWinner) {
         latestWinner = s_winners[s_winners.length - 1];
-    }
-
-    function getNumWords() public view returns (uint32 numWords) {
-        numWords = i_numWords;
-    }
-
-    function getRequestConfirmations() public view returns (uint32 requiredConfirmations) {
-        requiredConfirmations = i_requestConfirmations;
     }
 }

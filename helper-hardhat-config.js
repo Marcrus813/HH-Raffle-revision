@@ -8,19 +8,19 @@ const networkConfig = {
     11155111: {
         name: "sepolia",
         ethUsePriceFeed: "0x694AA1769357215DE4FAC081bf1f309aDC325306",
-        vrfCoordinator: "",
+        timestampTolerance: 30, // See note
     },
     1: {
         name: "mainnet",
         ethUsePriceFeed: "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419",
-        vrfCoordinator: "",
+        timestampTolerance: 30,
     },
     31337: {
         name: "hardhat",
         ethUsePriceFeed: "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419",
-        vrfCoordinator: "",
-    }
-}
+        timestampTolerance: 2,
+    },
+};
 
 const devChains = ["hardhat", "localhost"];
 

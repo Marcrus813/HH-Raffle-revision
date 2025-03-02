@@ -1,7 +1,4 @@
 {
-    "cSpell.words": [
-        "IVRF",
-        "VRFD",
-        "VRFV"
-    ]
+    "cSpell.words": ["IVRF", "VRFD", "VRFV"],
+    "github.copilot.chat.copilotDebugCommand.enabled": false
 }

@@ -1,7 +1,6 @@
 const raffleParams = {
     entranceFee: 10_000_000_000_000_000n,
     interval: 30,
-    
 };
 
 const vrfConsumerParams = {

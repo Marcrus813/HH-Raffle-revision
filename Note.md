@@ -99,3 +99,37 @@
                         ```
             - Try use event to get subId
                 - Got it working: `const subId = m.readEventArgument(createSub_future, "SubscriptionCreated", "subId");`, `createSub_future` being the function call future object, then the event name, then the event index to read
+- Testing
+    - Test cases
+        - Unit
+            - Deployment
+                1. Deploy success -> Valid addresses
+                2. VRF parameters correct -> Based on ignition modules
+                3. Raffle params correct -> Based on param config
+            - Setup
+                1. Subscription created -> Can get a valid `subId`
+                2. `Raffle` registered as consumer by `VRF`
+                3. Subscription is funded
+            - Function
+                - Initial states
+                    1. `raffleState` -> OPEN (When reading with code, it returns index)
+                    2. `s_lastTimestamp` -> Equals to when deployed
+                        - There is slight delay between deployment and contract calls, so when testing this we should introduce tolerance, for local network 2(2 blocks' compute time), for real chain, around 30(2 blocks' compute time)
+                - Interactions
+                    - Enter raffle
+                        1. Revert if not enough ETH
+                        ~~2. Revert if raffle not OPEN~~
+                            - Should I test this here or when testing VRF, testing here will require getting state to `CALCULATING`, since the later part hasn't been tested yet, should make sense to test this as `Should block entering when calculating` later
+                        2. Record players
+                        3. Emit event `RaffleEnter`([Waffle docs](https://ethereum-waffle.readthedocs.io/en/latest/matchers.html))
+                            - Chai matcher has a way to check events:
+                                ```javascript
+                                const [, player] = availableAccounts;
+                                await expect(raffle.connect(player).enterRaffle({ value: entranceFee }))
+                                    .to.emit(raffle, "RaffleEnter")
+                                    .withArgs(player.address);
+                                ```
+                            - Brings me to thinking, how to use ethers to get event?
+                                - `txnReceipt.logs`
+                                    - There is info and indexed params stored, but I think it will be difficult to use if there's multiple events during a transaction
+                                        - Solution: use filters
