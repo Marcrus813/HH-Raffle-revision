@@ -133,3 +133,74 @@
                                 - `txnReceipt.logs`
                                     - There is info and indexed params stored, but I think it will be difficult to use if there's multiple events during a transaction
                                         - Solution: use filters
+                        4. Prevents entering when calculating
+                            - Key point: simulate `performUpkeep` -> Need `checkUpkeep` true -> `interval` check to be true
+                                - Time-traveling
+                                    - Hardhat-network: `evm_increaseTime` -> `evm_mine`(need to mine for sth to happen after time increased)
+                                - Passing empty calldata to contract: use `0x`, not `[]`
+                    - Upkeep check
+                        - Test the cases, since my contract has only one way of receiving eth: `enterRaffle`, this should be straight forward
+                        - Using `callstatic` to avoid transaction, just to simulate a call
+                        - Getting return results from function: `const { upkeepNeeded } = await raffle.checkUpkeep.staticCall("0x");`, this is a feature provided by ethers.js
+                    - Performing upkeep
+                        - Getting error params
+                            - With chai matchers, same as `event`, use `.withArgs`:
+                                ```javascript
+                                it("Should not perform if upkeep not needed", async () => {
+                                    await expect(raffle.performUpkeep("0x")).to.be.revertedWithCustomError(
+                                        raffle,
+                                        "Raffle__UpkeepNotNeeded",
+                                    ).withArgs(0, 0, 0);
+                                });
+                                ```
+                            - With ethers:
+                                - When using ethers, we would almost always need abi, we get the abi from artifact, use it to decode results, in this case of error:
+                                    ```javascript
+                                    const fs = require("fs");
+                                    const path = require("path");
+
+                                    // With ethers
+                                    const artifact = JSON.parse(
+                                        fs.readFileSync(
+                                            path.join(
+                                                __dirname,
+                                                "../../artifacts/contracts/Raffle.sol/Raffle.json",
+                                            ),
+                                            "utf8",
+                                        ),
+                                    );
+                                    const abi = artifact.abi;
+                                    const interface = new ethers.Interface(abi);
+                                    try {
+                                        await raffle.performUpkeep("0x");
+                                    } catch (error) {
+                                        const decoded = interface.parseError(error.data);
+                                        /* decoded: {
+                                            args: [] // array of error args
+                                            fragment: ErrorFragment {type: 'error', inputs: Array(3), name: 'Raffle__UpkeepNotNeeded', Symbol(_ethers_internal): '_ErrorInternal'}
+                                            name: 'Raffle__UpkeepNotNeeded'
+                                            selector: '0x584327aa'
+                                            signature: 'Raffle__UpkeepNotNeeded(uint256,uint256,uint256)'
+                                        } */
+                                        expect(decoded.args[0]).to.equals(0);
+                                    }
+                                    ```
+                        - Retrieving event args(AGAIN)
+                            - With chai matchers:
+                                - `expect.to.emit(contract, "eventName").withArgs(value0, value1)`
+                            - With ethers, we are using the similar logic of [solidity itself](https://docs.ethers.org/v5/concepts/events/), use filter to filter out logs to get the specific logs we want
+                                - Event filters in ethersjs
+                                    - `contract.filters.EVENT_NAME( ...args ) ⇒ Filter`
+                                    - `contract.queryFilter( event [ , fromBlockOrBlockHash [ , toBlock ] ) ⇒ Promise< Array< Event > >`, we are using `filter` object as param, then we get the `EventLog` we want:
+                                        ```JSON
+                                        {
+                                            address: "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
+                                            args: [] // value of the args
+                                            blockHash
+                                            blockNumber
+                                            data
+                                            eventName: "randomWinnerRequested"
+                                            eventSignature: "randomWinnerRequested(uint256)"
+                                            ...
+                                        }
+                                        ```

@@ -150,7 +150,7 @@ contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
                     callbackGasLimit: i_callbackGasLimit,
                     numWords: i_numWords,
                     extraArgs: VRFV2PlusClient._argsToBytes(
-                        VRFV2PlusClient.ExtraArgsV1({nativePayment: true}) // `nativePayment` to use ETH to fund the sub instead of LINK
+                        VRFV2PlusClient.ExtraArgsV1({nativePayment: false}) // `nativePayment` to use ETH to fund the sub instead of LINK
                     )
                 })
             );

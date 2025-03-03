@@ -1,12 +1,12 @@
 const { expect } = require("chai");
-const { ethers, ignition } = require("hardhat");
+const { ethers, ignition, network } = require("hardhat");
 const { loadFixture } = require("@nomicfoundation/hardhat-toolbox/network-helpers");
 const raffleModule = require("../../ignition/modules/01-Raffle");
 const { chainIds, devChains, networkConfig } = require("../../helper-hardhat-config");
 const { raffleParams } = require("../../raffle-params");
 
-const network = process.env.NETWORK || "hardhat";
-const localFlag = devChains.includes(network);
+const currentNetwork = process.env.NETWORK || "hardhat";
+const localFlag = devChains.includes(currentNetwork);
 
 if (!localFlag) {
     describe.skip;
@@ -19,7 +19,7 @@ if (!localFlag) {
         let initialTimestamp;
         let availableAccounts;
         let entranceFee;
-        let winningInterval;
+        let interval;
 
         async function deployFixture() {
             const { contract_raffle, contract_vrfMock } = await ignition.deploy(raffleModule);
@@ -35,7 +35,7 @@ if (!localFlag) {
             mock = deployments.contract_vrfMock;
             availableAccounts = await ethers.getSigners();
             entranceFee = await raffle.getEntranceFee();
-            winningInterval = await raffle.getInterval();
+            interval = await raffle.getInterval();
         });
 
         describe("Deployment", () => {
@@ -65,7 +65,7 @@ if (!localFlag) {
                 const entranceFeeInput = raffleParams.entranceFee;
                 const intervalInput = raffleParams.interval;
                 expect(entranceFee).to.equals(entranceFeeInput);
-                expect(winningInterval).to.equals(intervalInput);
+                expect(interval).to.equals(intervalInput);
             });
         });
 
@@ -97,7 +97,7 @@ if (!localFlag) {
                     expect(raffleState).to.equals(0);
                 });
                 it("Should have timestamp of the blockchain when it was deployed", async () => {
-                    const chainId = chainIds[network];
+                    const chainId = chainIds[currentNetwork];
                     const timestamp = await raffle.getLastTimeStamp();
                     const tolerance = networkConfig[chainId].timestampTolerance;
                     expect(timestamp).to.be.closeTo(initialTimestamp, tolerance);
@@ -136,9 +136,116 @@ if (!localFlag) {
                         .withArgs(rafflePlayer.address);
 
                     // Ethers approach
-                    const filter = raffle.filters.RaffleEnter();
+                    /* const filter = raffle.filters.RaffleEnter();
                     const event = await raffle.queryFilter(filter);
-                    expect(event[0].args[0]).to.equals(rafflePlayer.address);
+                    expect(event[0].args[0]).to.equals(rafflePlayer.address); */
+                });
+                it("Should prevent entrance when calculating", async () => {
+                    const [, player0, player1] = availableAccounts;
+                    await raffle.connect(player0).enterRaffle({ value: entranceFee });
+                    await network.provider.send("evm_increaseTime", [Number(interval) + 1]);
+                    await network.provider.send("evm_mine", []);
+                    // All conditions met, simulate keeper
+                    await raffle.performUpkeep("0x"); // To change the state to `CALCULATING`
+                    await expect(
+                        raffle.connect(player1).enterRaffle({ value: entranceFee }),
+                    ).to.be.revertedWithCustomError(raffle, "Raffle__RaffleNotOpen");
+                });
+            });
+            describe("Triggering", () => {
+                let owner, player0, player1, player2;
+                beforeEach(async () => {
+                    [owner, player0, player1, player2] = availableAccounts;
+                });
+                it("Should not trigger if raffle not open", async () => {
+                    await raffle.connect(player0).enterRaffle({ value: entranceFee });
+                    await network.provider.send("evm_increaseTime", [Number(interval) + 1]);
+                    await network.provider.send("evm_mine", []);
+                    await raffle.performUpkeep("0x"); // To change the state to `CALCULATING`
+                    const { upkeepNeeded } = await raffle.checkUpkeep.staticCall("0x");
+                    expect(upkeepNeeded).to.be.false;
+                });
+
+                it("Should not trigger if not enough players", async () => {
+                    const { upkeepNeeded } = await raffle.checkUpkeep.staticCall("0x");
+                    expect(upkeepNeeded).to.be.false;
+                });
+
+                it("Should not trigger if not enough time elapsed", async () => {
+                    await raffle.connect(player0).enterRaffle({ value: entranceFee });
+                    await network.provider.send("evm_increaseTime", [Number(interval) - 2]);
+                    await network.provider.send("evm_mine", []);
+                    await raffle.performUpkeep("0x"); // To change the state to `CALCULATING`
+                    const { upkeepNeeded } = await raffle.checkUpkeep.staticCall("0x");
+                    expect(upkeepNeeded).to.be.false;
+                });
+
+                it("Should not trigger if not enough balance", async () => {
+                    const { upkeepNeeded } = await raffle.checkUpkeep.staticCall("0x");
+                    expect(upkeepNeeded).to.be.false;
+                });
+            });
+            describe("Performing upkeep", () => {
+                it("Should not perform if upkeep not needed", async () => {
+                    await expect(raffle.performUpkeep("0x"))
+                        .to.be.revertedWithCustomError(raffle, "Raffle__UpkeepNotNeeded")
+                        .withArgs(0, 0, 0);
+                });
+                it("Should set state to `CALCULATING` when performing", async () => {
+                    const [, player0] = availableAccounts;
+                    await raffle.connect(player0).enterRaffle({ value: entranceFee });
+                    await network.provider.send("evm_increaseTime", [Number(interval) + 2]);
+                    await network.provider.send("evm_mine", []);
+                    await raffle.performUpkeep("0x");
+                    const raffleState = await raffle.getRaffleState();
+                    expect(raffleState).to.be.equals(1);
+                });
+                it("Should get a `requestId` from emitted event", async () => {
+                    const [, player0] = availableAccounts;
+                    await raffle.connect(player0).enterRaffle({ value: entranceFee });
+                    await network.provider.send("evm_increaseTime", [Number(interval) + 2]);
+                    await network.provider.send("evm_mine", []);
+                    await expect(raffle.performUpkeep("0x")).to.emit(
+                        raffle,
+                        "randomWinnerRequested",
+                    );
+
+                    // Ethers
+
+                    // Raw, without filter
+
+                    /* const eventTopic = ethers.id("randomWinnerRequested(uint256)"); // Using the signature of the event
+
+                    const rawLogs = await ethers.provider.getLogs({
+                        address: raffleAddress,
+                        topics: [eventTopic],
+                        fromBlock:
+                            (await ethers.provider.getBlockNumber()) - 10000 <= 0
+                                ? 0
+                                : (await ethers.provider.getBlockNumber()) - 10000,
+                        toBlock: await ethers.provider.getBlockNumber(),
+                    });
+
+                    const artifact = JSON.parse(
+                        fs.readFileSync(
+                            path.join(
+                                __dirname,
+                                "../../artifacts/contracts/Raffle.sol/Raffle.json",
+                            ),
+                            "utf8",
+                        ),
+                    );
+                    const abi = artifact.abi;
+                    const interface = new ethers.Interface(abi);
+                    const parsedLog = interface.parseLog(rawLogs[rawLogs.length - 1]);
+                    const requestId = parsedLog.args[0];
+                    expect(requestId).to.be.not.null; */
+
+                    // With ethers filter
+                    /* const filter = raffle.filters.randomWinnerRequested();
+                    const randomWinnerRequestedEvent = await raffle.queryFilter(filter);
+                    const requestId = randomWinnerRequestedEvent[0].args[0];
+                    expect(requestId).to.be.not.null; */
                 });
             });
         });
