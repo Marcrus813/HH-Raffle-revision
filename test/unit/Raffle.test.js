@@ -210,11 +210,11 @@ if (!localFlag) {
                         "randomWinnerRequested",
                     );
 
-                    // Ethers
+                    /* // Ethers section
 
                     // Raw, without filter
 
-                    /* const eventTopic = ethers.id("randomWinnerRequested(uint256)"); // Using the signature of the event
+                    const eventTopic = ethers.id("randomWinnerRequested(uint256)"); // Using the signature of the event
 
                     const rawLogs = await ethers.provider.getLogs({
                         address: raffleAddress,
@@ -239,14 +239,86 @@ if (!localFlag) {
                     const interface = new ethers.Interface(abi);
                     const parsedLog = interface.parseLog(rawLogs[rawLogs.length - 1]);
                     const requestId = parsedLog.args[0];
-                    expect(requestId).to.be.not.null; */
+                    expect(requestId).to.be.not.null;
+
+                    // With `transactionReceipt`
+
+                    const txnResponse = await raffle.performUpkeep("0x");
+                    const receipt = await txnResponse.wait(1);
+
+                    // VRF emitted event before our event
+                    const requestId = receipt.events[1].args.requestId;
 
                     // With ethers filter
-                    /* const filter = raffle.filters.randomWinnerRequested();
+                    const filter = raffle.filters.randomWinnerRequested();
                     const randomWinnerRequestedEvent = await raffle.queryFilter(filter);
                     const requestId = randomWinnerRequestedEvent[0].args[0];
                     expect(requestId).to.be.not.null; */
                 });
+            });
+            describe("Fulfilling randomness", () => {
+                let owner, player0, player1, player2;
+                let startingTime;
+                beforeEach(async () => {
+                    [owner, player0, player1, player2] = availableAccounts;
+                    await raffle.connect(player0).enterRaffle({ value: entranceFee });
+                    await raffle.connect(player1).enterRaffle({ value: entranceFee });
+                    await raffle.connect(player2).enterRaffle({ value: entranceFee });
+                    await network.provider.send("evm_increaseTime", [Number(interval) + 2]);
+                    await network.provider.send("evm_mine", []);
+                    startingTime = (await ethers.provider.getBlock("latest")).timestamp;
+                });
+                it("Should only be called after `performUpkeep`", async () => {
+                    for (let requestId = 0; requestId <= 5000; requestId++) {
+                        await expect(
+                            mock.fulfillRandomWords(requestId, raffleAddress),
+                        ).to.be.revertedWithCustomError(mock, "InvalidRequest");
+                    }
+                });
+                it("Should pick the winner", async () => {
+                    /* First setup listener for the event, so when later the function is called
+                    the listener will be triggered, in code it seems backwards */
+                    await new Promise(async (resolve, reject) => {
+                        raffle.once("WinnerPicked", async () => {
+                            try {
+                                const tolerance = networkConfig[chainId].timestampTolerance;
+
+                                const recentWinner = await raffle.getLatestWinner();
+                                const raffleState = await raffle.getRaffleState();
+                                const lastWinTimestamp = await raffle.getLastTimeStamp();
+                                const currentTimestamp = (await ethers.provider.getBlock("latest")).timestamp;
+                                
+                                expect(recentWinner).to.be.properAddress;
+                                expect(raffleState).to.equals(0);
+                                expect(lastWinTimestamp).to.be.gt(startingTime);
+                                expect(lastWinTimestamp).to.be.closeTo(currentTimestamp, tolerance);
+                                await expect(raffle.getPlayer(0)).to.be.reverted;
+                            } catch (error) {
+                                reject();
+                            }
+                            resolve();
+                        });
+                        await raffle.performUpkeep("0x");
+                        let requestId;
+                        const randomRequest_event_filter = raffle.filters.randomWinnerRequested();
+                        const randomRequest_event = await raffle.queryFilter(
+                            randomRequest_event_filter,
+                        );
+                        requestId = randomRequest_event[0].args.requestId;
+
+                        /**
+                         * This will emit mock's `fulfillRandomWords`, then emit its `RandomWordsFulfilled`,
+                         * then raffle's `WinnerPicked`, then this will trigger the listener above
+                         */
+                        await mock.fulfillRandomWords(requestId, raffleAddress);
+                        const mock_randomFulfil_event_filter = mock.filters.RandomWordsFulfilled();
+                        const mock_randomFulfil_event = await mock.queryFilter(
+                            mock_randomFulfil_event_filter,
+                        );
+                    });
+                });
+                it("Should reset to initial state after winner picked", async () => {});
+                it("Should send the money to the winner", async () => {});
             });
         });
     });

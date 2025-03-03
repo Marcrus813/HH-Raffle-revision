@@ -204,3 +204,12 @@
                                             ...
                                         }
                                         ```
+                    - Fulfilling randomness
+                        - Logic
+                            - The mock's `fulfillRandomWords` get called(by automation), then the mock calls our `fulfillRandomWords`
+                        - Notes
+                            - We are testing with a fair amount of variables where it should revert, but if the ranges are massive. we cannot do this manually, we need fuzz testing
+                                - See code, basically a for loop
+                        - Simulate the wait
+                            - We can use `evm_increaseTime` to skip time, when testing we need to setup listener to test if it works as expected
+                            - Using `Promise` like in Web, see code for more details

@@ -36,7 +36,7 @@ contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
     event randomWinnerFulfilled(uint256 indexed requestId, uint256[] indexed randomWords);
 
     event RaffleEnter(address indexed player);
-    event RaffleWinner(address indexed winner);
+    event WinnerPicked(address indexed winner);
 
     constructor(
         uint256 subscriptionId,
@@ -115,10 +115,10 @@ contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
         if (!success) {
             revert Raffle__TransferFailed();
         }
-        emit RaffleWinner(recentWinner);
         s_state = RaffleState.OPEN;
         s_players = new address payable[](0);
         s_lastTimeStamp = block.timestamp;
+        emit WinnerPicked(recentWinner);
     }
 
     /**
