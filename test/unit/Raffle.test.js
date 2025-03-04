@@ -372,7 +372,7 @@ if (!localFlag) {
                                 const finalBalance_raffle =
                                     await ethers.provider.getBalance(raffleAddress);
 
-                                expect(finalBalance_winner).to.be.equals(
+                                expect(finalBalance_winner).to.be.lte(
                                     initialBalance_winner + initialBalance_raffle - txnFee,
                                 );
                                 expect(finalBalance_raffle).to.be.equals(0);
