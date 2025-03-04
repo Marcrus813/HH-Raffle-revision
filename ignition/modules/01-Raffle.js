@@ -34,7 +34,7 @@ module.exports = buildModule("RaffleModule", (m) => {
             );
             const vrf_keyHash =
                 "0x787d74caea10b2b357790d5b5247c2f63d1d91572a9846f780606e4d953677ae"; // Just a random bytes32
-            const vrf_callbackGasLimit = 40000;
+            const vrf_callbackGasLimit = 250000;
             const vrf_requestConfirmations = 1;
             const vrf_numWords = 1;
             contract_raffle = m.contract(

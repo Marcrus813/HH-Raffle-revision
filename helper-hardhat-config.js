@@ -1,4 +1,5 @@
 const chainIds = {
+    localhost: 31337,
     hardhat: 31337,
     sepolia: 11155111,
     mainnet: 1

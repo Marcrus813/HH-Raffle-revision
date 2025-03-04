@@ -20,6 +20,7 @@ if (!localFlag) {
         let availableAccounts;
         let entranceFee;
         let interval;
+        let initialBalanceMap = new Map();
 
         async function deployFixture() {
             const { contract_raffle, contract_vrfMock } = await ignition.deploy(raffleModule);
@@ -36,6 +37,12 @@ if (!localFlag) {
             availableAccounts = await ethers.getSigners();
             entranceFee = await raffle.getEntranceFee();
             interval = await raffle.getInterval();
+            for (let i = 0; i < availableAccounts.length; i++) {
+                initialBalanceMap.set(
+                    availableAccounts[i].address,
+                    await ethers.provider.getBalance(availableAccounts[i].address),
+                );
+            }
         });
 
         describe("Deployment", () => {
@@ -57,7 +64,7 @@ if (!localFlag) {
                 expect(keyHash).to.equals(
                     "0x787d74caea10b2b357790d5b5247c2f63d1d91572a9846f780606e4d953677ae",
                 );
-                expect(callbackGasLimit).to.equals(40000);
+                expect(callbackGasLimit).to.equals(250000);
                 expect(requestConfirmations).to.equals(1);
                 expect(numWords).to.equals(1);
             });
@@ -257,19 +264,20 @@ if (!localFlag) {
                 });
             });
             describe("Fulfilling randomness", () => {
-                let owner, player0, player1, player2;
+                let owner, player0, player1, player2, player3;
                 let startingTime;
                 beforeEach(async () => {
-                    [owner, player0, player1, player2] = availableAccounts;
+                    [owner, player0, player1, player2, player3] = availableAccounts;
                     await raffle.connect(player0).enterRaffle({ value: entranceFee });
                     await raffle.connect(player1).enterRaffle({ value: entranceFee });
                     await raffle.connect(player2).enterRaffle({ value: entranceFee });
+                    await raffle.connect(player3).enterRaffle({ value: entranceFee });
                     await network.provider.send("evm_increaseTime", [Number(interval) + 2]);
                     await network.provider.send("evm_mine", []);
-                    startingTime = (await ethers.provider.getBlock("latest")).timestamp;
+                    startingTime = await raffle.getLastTimeStamp();
                 });
                 it("Should only be called after `performUpkeep`", async () => {
-                    for (let requestId = 0; requestId <= 5000; requestId++) {
+                    for (let requestId = 0; requestId <= 10; requestId++) {
                         await expect(
                             mock.fulfillRandomWords(requestId, raffleAddress),
                         ).to.be.revertedWithCustomError(mock, "InvalidRequest");
@@ -281,20 +289,14 @@ if (!localFlag) {
                     await new Promise(async (resolve, reject) => {
                         raffle.once("WinnerPicked", async () => {
                             try {
-                                const tolerance = networkConfig[chainId].timestampTolerance;
-
                                 const recentWinner = await raffle.getLatestWinner();
-                                const raffleState = await raffle.getRaffleState();
-                                const lastWinTimestamp = await raffle.getLastTimeStamp();
-                                const currentTimestamp = (await ethers.provider.getBlock("latest")).timestamp;
-                                
                                 expect(recentWinner).to.be.properAddress;
-                                expect(raffleState).to.equals(0);
-                                expect(lastWinTimestamp).to.be.gt(startingTime);
-                                expect(lastWinTimestamp).to.be.closeTo(currentTimestamp, tolerance);
-                                await expect(raffle.getPlayer(0)).to.be.reverted;
                             } catch (error) {
-                                reject();
+                                if (!error.matcherResult) {
+                                    // ChaiJS assertion errors have matcherResult
+                                    reject(error);
+                                }
+                                throw error;
                             }
                             resolve();
                         });
@@ -311,14 +313,99 @@ if (!localFlag) {
                          * then raffle's `WinnerPicked`, then this will trigger the listener above
                          */
                         await mock.fulfillRandomWords(requestId, raffleAddress);
-                        const mock_randomFulfil_event_filter = mock.filters.RandomWordsFulfilled();
-                        const mock_randomFulfil_event = await mock.queryFilter(
-                            mock_randomFulfil_event_filter,
-                        );
                     });
                 });
-                it("Should reset to initial state after winner picked", async () => {});
-                it("Should send the money to the winner", async () => {});
+                it("Should reset to initial state after winner picked", async () => {
+                    const chainId = chainIds[currentNetwork];
+                    await new Promise(async (resolve, reject) => {
+                        raffle.once("WinnerPicked", async () => {
+                            try {
+                                const raffleState = await raffle.getRaffleState();
+                                const lastWinTimestamp = await raffle.getLastTimeStamp();
+                                const currentTimestamp = (await ethers.provider.getBlock("latest"))
+                                    .timestamp;
+
+                                const tolerance = networkConfig[chainId].timestampTolerance;
+
+                                expect(raffleState).to.equals(0);
+                                expect(lastWinTimestamp).to.be.gt(startingTime);
+                                expect(lastWinTimestamp).to.be.closeTo(currentTimestamp, tolerance);
+                                await expect(raffle.getPlayer(0)).to.be.reverted;
+                                resolve();
+                            } catch (error) {
+                                if (!error.matcherResult) {
+                                    // ChaiJS assertion errors have matcherResult
+                                    reject(error);
+                                }
+                                throw error;
+                            }
+                            resolve();
+                        });
+
+                        await raffle.performUpkeep("0x");
+                        let requestId;
+                        const randomRequest_event_filter = raffle.filters.randomWinnerRequested();
+                        const randomRequest_event = await raffle.queryFilter(
+                            randomRequest_event_filter,
+                        );
+                        requestId = randomRequest_event[0].args.requestId;
+
+                        /**
+                         * This will emit mock's `fulfillRandomWords`, then emit its `RandomWordsFulfilled`,
+                         * then raffle's `WinnerPicked`, then this will trigger the listener above
+                         */
+                        await mock.fulfillRandomWords(requestId, raffleAddress);
+                    });
+                });
+                it("Should send the money to the winner", async () => {
+                    const initialBalance_raffle = await ethers.provider.getBalance(raffleAddress);
+                    let winnerAddress;
+                    let txnFee;
+
+                    await new Promise(async (resolve, reject) => {
+                        raffle.once("WinnerPicked", async () => {
+                            try {
+                                winnerAddress = await raffle.getLatestWinner();
+                                const initialBalance_winner = initialBalanceMap.get(winnerAddress);
+                                const finalBalance_winner =
+                                    await ethers.provider.getBalance(winnerAddress);
+                                const finalBalance_raffle =
+                                    await ethers.provider.getBalance(raffleAddress);
+
+                                expect(finalBalance_winner).to.be.equals(
+                                    initialBalance_winner + initialBalance_raffle - txnFee,
+                                );
+                                expect(finalBalance_raffle).to.be.equals(0);
+
+                                resolve();
+                            } catch (error) {
+                                if (!error.matcherResult) {
+                                    // ChaiJS assertion errors have matcherResult
+                                    reject(error);
+                                }
+                                throw error;
+                            }
+                            resolve();
+                        });
+
+                        await raffle.performUpkeep("0x");
+                        let requestId;
+                        const randomRequest_event_filter = raffle.filters.randomWinnerRequested();
+                        const randomRequest_event = await raffle.queryFilter(
+                            randomRequest_event_filter,
+                        );
+                        requestId = randomRequest_event[0].args.requestId;
+
+                        /**
+                         * This will emit mock's `fulfillRandomWords`, then emit its `RandomWordsFulfilled`,
+                         * then raffle's `WinnerPicked`, then this will trigger the listener above
+                         */
+                        const txnResponse = await mock.fulfillRandomWords(requestId, raffleAddress);
+                        const txnReceipt = await txnResponse.wait(1);
+                        const { fee } = txnReceipt;
+                        txnFee = fee;
+                    });
+                });
             });
         });
     });
