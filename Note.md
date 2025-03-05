@@ -231,6 +231,11 @@
                             - [x] Seems mock's `fulfillRandomWords` failed, event emitted with `success=false`
                                 - Increased `callbackGasLimit` event got emitted, so it is a gas issue? Looking at gas report, `fulfillRandomWords` is taking up to 160,000 gas
                             - [ ] Fee seems to be too high, difference: `40000000000000000`, `29926024784576940`, Still haven't figured out, moving on for now
+
         - Staging Test
             - Difference from local test: we don't have to mimic the VRF ourselves
             - Set listener before entering, cuz we won't have control over the network, setting up listener as a preparation should go first
+            - [ ] Problems
+                - [ ] Calling `performUpkeep` fails on sepolia, possible gas issue?
+                - Could be `(bool upkeepNeeded, ) = checkUpkeep("0x");` we might need to use `"0x"` instead of `""`
+                    - Txn took too long, I will just move on

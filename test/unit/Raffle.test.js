@@ -64,7 +64,7 @@ if (!localFlag) {
                 expect(keyHash).to.equals(
                     "0x787d74caea10b2b357790d5b5247c2f63d1d91572a9846f780606e4d953677ae",
                 );
-                expect(callbackGasLimit).to.equals(250000);
+                expect(callbackGasLimit).to.equals(500000);
                 expect(requestConfirmations).to.equals(1);
                 expect(numWords).to.equals(1);
             });

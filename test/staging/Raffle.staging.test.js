@@ -9,75 +9,111 @@ const localFlag = devChains.includes(currentNetwork);
 if (localFlag) {
     describe.skip;
 } else {
-    let contract_raffle;
-
+    let raffle;
+    let raffleAddress;
+    let availableAccounts;
+    let initialTimestamp;
     let entranceFee;
-    let interval;
-    let address_raffle;
-
-    let accounts;
-    let deployer;
+    let initialBalanceMap = new Map();
 
     beforeEach(async () => {
-        accounts = await ethers.getSigners();
-        const [deployer] = await ethers.getSigners();
-
-        address_raffle = "0xB1A4De0a2a27672F1b299C45C9A98a9b50E1c0f8";
-        contract_raffle = await ethers.getContractAt("Raffle", address_raffle);
-        await contract_raffle.connect(deployer);
-        entranceFee = await contract_raffle.getEntranceFee();
-        interval = await contract_raffle.getInterval();
+        const { contract_raffle } = await ignition.deploy(raffleModule);
+        raffle = contract_raffle;
+        raffleAddress = await raffle.getAddress();
+        availableAccounts = await ethers.getSigners();
+        initialTimestamp = await raffle.getLastTimeStamp();
+        entranceFee = await raffle.getEntranceFee();
+        for (let i = 0; i < availableAccounts.length; i++) {
+            initialBalanceMap.set(
+                availableAccounts[i].address,
+                await ethers.provider.getBalance(availableAccounts[i].address),
+            );
+        }
     });
 
-    describe("Function `fulfillRandomWords()`:", () => {
-        it("Works with live Chainlink Keepers and Chainlink VRF, we get a random winner", async () => {
-            console.log("Starting test...");
-            /**Enter raffle
-             * This should be the only thing we need to do, for getting winner is done by keeper
-             */
-            const startingTimeStamp = await contract_raffle.getLastTimeStamp();
-
-            console.log("Setup listener...");
-            /**Set up listener before entering raffle
-             * Just in case blockchain computes really fast
-             */
+    describe("Fulfilling randomness", () => {
+        it("Should pick the winner", async () => {
+            /* First setup listener for the event, so when later the function is called
+                        the listener will be triggered, in code it seems backwards */
             await new Promise(async (resolve, reject) => {
-                contract_raffle.once("WinnerPicked", async () => {
-                    console.log("Event fired!");
+                raffle.once("WinnerPicked", async () => {
                     try {
-                        const recentWinner = await contract_raffle.getRecentWinner();
-                        const winnerEndingBalance = await ethers.provider.getBalance(recentWinner);
-                        const raffleState = await contract_raffle.getRaffleState();
-                        const endingTimestamp = await contract_raffle.getLatestTimestamp();
+                        const recentWinner = await raffle.getLatestWinner();
+                        expect(recentWinner).to.be.properAddress;
+                    } catch (error) {
+                        if (!error.matcherResult) {
+                            // ChaiJS assertion errors have matcherResult
+                            reject(error);
+                        }
+                        throw error;
+                    }
+                    resolve();
+                });
+                const [owner] = availableAccounts;
+                await raffle.connect(owner).enterRaffle({ value: entranceFee });
+            });
+        });
+        it("Should reset to initial state after winner picked", async () => {
+            const chainId = chainIds[currentNetwork];
+            await new Promise(async (resolve, reject) => {
+                raffle.once("WinnerPicked", async () => {
+                    try {
+                        const raffleState = await raffle.getRaffleState();
+                        const lastWinTimestamp = await raffle.getLastTimeStamp();
+                        const currentTimestamp = (await ethers.provider.getBlock("latest"))
+                            .timestamp;
 
-                        // Asserts
-                        await expect(contract_raffle.getPlayer(0)).to.be.reverted; // `s_players` got reset
-                        assert.equal(recentWinner.toString(), accounts[0].address);
-                        assert.equal(raffleState.toString(), "0");
-                        assert.equal(
-                            winnerEndingBalance.toString(),
-                            (winnerStartingBalance + BigInt(entranceFee)).toString(),
-                        );
-                        assert(endingTimestamp > startingTimeStamp);
+                        const tolerance = networkConfig[chainId].timestampTolerance;
+
+                        expect(raffleState).to.equals(0);
+                        expect(lastWinTimestamp).to.be.gt(startingTime);
+                        expect(lastWinTimestamp).to.be.closeTo(currentTimestamp, tolerance);
+                        await expect(raffle.getPlayer(0)).to.be.reverted;
                         resolve();
                     } catch (error) {
-                        console.log(error);
-                        reject();
+                        if (!error.matcherResult) {
+                            // ChaiJS assertion errors have matcherResult
+                            reject(error);
+                        }
+                        throw error;
                     }
+                    resolve();
+                });
+                const [owner] = availableAccounts;
+                await raffle.connect(owner).enterRaffle({ value: entranceFee });
+            });
+        });
+        it("Should send the money to the winner", async () => {
+            const initialBalance_raffle = await ethers.provider.getBalance(raffleAddress);
+            let winnerAddress;
+            let txnFee;
+
+            await new Promise(async (resolve, reject) => {
+                raffle.once("WinnerPicked", async () => {
+                    try {
+                        winnerAddress = await raffle.getLatestWinner();
+                        const initialBalance_winner = initialBalanceMap.get(winnerAddress);
+                        const finalBalance_winner = await ethers.provider.getBalance(winnerAddress);
+                        const finalBalance_raffle = await ethers.provider.getBalance(raffleAddress);
+
+                        expect(finalBalance_winner).to.be.lte(
+                            initialBalance_winner + initialBalance_raffle - txnFee,
+                        );
+                        expect(finalBalance_raffle).to.be.equals(0);
+
+                        resolve();
+                    } catch (error) {
+                        if (!error.matcherResult) {
+                            // ChaiJS assertion errors have matcherResult
+                            reject(error);
+                        }
+                        throw error;
+                    }
+                    resolve();
                 });
 
-                console.log("Entering raffle");
-                // Enter raffle
-                const txn = await contract_raffle.enterRaffle({
-                    value: entranceFee,
-                });
-                await txn.wait(1);
-                console.log("Pending...");
-                const winnerStartingBalance = await ethers.provider.getBalance(accounts[0].address);
-
-                /**This section won't complete until listener finishes listening
-                 * `await` -> This section -> Outer `await` complete?(Depending on listener) -> Done
-                 */
+                const [owner] = availableAccounts;
+                await raffle.connect(owner).enterRaffle({ value: entranceFee });
             });
         });
     });

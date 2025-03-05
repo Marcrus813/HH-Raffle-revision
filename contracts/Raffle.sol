@@ -38,6 +38,9 @@ contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
     event RaffleEnter(address indexed player);
     event WinnerPicked(address indexed winner);
 
+    event TestPerforming();
+    event TestChangedState();
+
     constructor(
         uint256 subscriptionId,
         address vrfCoordinator,
@@ -140,9 +143,11 @@ contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
 
     function performUpkeep(bytes calldata) external override {
         // Prevents calling without validation, if `checkData` is defined as `calldata` in `checkUpkeep`, we cannot call it with `""`
-        (bool upkeepNeeded, ) = checkUpkeep("");
+        (bool upkeepNeeded, ) = checkUpkeep("0x");
         if (upkeepNeeded) {
+            emit TestPerforming();
             s_state = RaffleState.CALCULATING;
+            emit TestChangedState();
             uint256 requestId = s_vrfCoordinator.requestRandomWords( // `s_vrfCoordinator` is from `IVRFCoordinatorV2Plus`
                 VRFV2PlusClient.RandomWordsRequest({
                     keyHash: i_keyHash,
