@@ -239,3 +239,9 @@
                 - [ ] Calling `performUpkeep` fails on sepolia, possible gas issue?
                 - Could be `(bool upkeepNeeded, ) = checkUpkeep("0x");` we might need to use `"0x"` instead of `""`
                     - Txn took too long, I will just move on
+
+---
+
+### Front-end
+
+- Still decided to skip for now, need to learn NextJs first
