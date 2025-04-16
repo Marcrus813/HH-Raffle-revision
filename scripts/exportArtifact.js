@@ -14,7 +14,7 @@ function exportArtifact(chainId) {
     const frontEndFolderName = process.env.FRONT_END_NAME;
     const targetDir = path.join(
         __dirname,
-        `../../${frontEndFolderName}/assets/chain-${chainId}/artifacts/`,
+        `../../${frontEndFolderName}/assets/artifacts/`,
     );
 
     try {
@@ -24,7 +24,7 @@ function exportArtifact(chainId) {
         }
 
         if (fs.existsSync(addressSourceDir)) {
-            fs.copyFileSync(addressSourceDir, path.join(targetDir, `deployed_addresses.json`));
+            fs.copyFileSync(addressSourceDir, path.join(targetDir, `deployed_addresses-${chainId}.json`));
             console.log(`Copied address info to ${targetDir}`);
         } else {
             console.log(`File not found: ${addressSourceDir}`);
