@@ -14,7 +14,7 @@ function exportArtifact(chainId) {
     const frontEndFolderName = process.env.FRONT_END_NAME;
     const targetDir = path.join(
         __dirname,
-        `../../${frontEndFolderName}/assets/contracts/artifacts/`,
+        `../../${frontEndFolderName}/assets/chain-${chainId}/artifacts/`,
     );
 
     try {
