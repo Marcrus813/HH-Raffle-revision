@@ -7,7 +7,10 @@ const {
 const { chainIds, networkConfig, devChains } = require("../../helper-hardhat-config");
 
 module.exports = buildModule("RaffleModule", (m) => {
-    const network = process.env.NETWORK || "hardhat";
+    let network = process.env.NETWORK || "hardhat";
+    if (network === "localhost") {
+        network = "hardhat";
+    }
     const localFlag = devChains.includes(network);
     let contract_raffle;
     let contract_vrfMock;

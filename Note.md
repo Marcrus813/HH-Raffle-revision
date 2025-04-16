@@ -245,3 +245,4 @@
 ### Front-end
 
 - Still decided to skip for now, need to learn NextJs first
+    - Moving back: 2025/04/08

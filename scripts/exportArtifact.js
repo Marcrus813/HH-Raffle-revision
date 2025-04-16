@@ -11,12 +11,12 @@ function exportArtifact(chainId) {
         __dirname,
         `../ignition/deployments/chain-${chainId}/artifacts/RaffleModule#Raffle.json`,
     );
-    const targetDir = path.join(__dirname, `../../NextJs-Raffle/artifacts/`);
+    const targetDir = path.join(__dirname, `../../nextjs-raffle/assets/contracts/artifacts/`);
 
     try {
         if (!fs.existsSync(targetDir)) {
             // Create the dir if non-exist
-            fs.mkdirSync(targetDir);
+            fs.mkdirSync(targetDir, {recursive: true});
         }
 
         if (fs.existsSync(addressSourceDir)) {
