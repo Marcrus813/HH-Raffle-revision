@@ -216,6 +216,10 @@ contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
     }
 
     function getLatestWinner() public view returns (address latestWinner) {
-        latestWinner = s_winners[s_winners.length - 1];
+        if (s_winners.length == 0) {
+            latestWinner = address(0);
+        } else {
+            latestWinner = s_winners[s_winners.length - 1];
+        }
     }
 }
